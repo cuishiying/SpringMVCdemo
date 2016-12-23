@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx" xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:jpa="http://www.springframework.org/schema/data/jpa" xmlns:cache="http://www.springframework.org/schema/cache"
+       xmlns:c="http://www.springframework.org/schema/c" xmlns:elasticsearch="http://www.springframework.org/schema/data/elasticsearch"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+		http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/aop
+  		http://www.springframework.org/schema/aop/spring-aop.xsd
+		http://www.springframework.org/schema/tx
+		http://www.springframework.org/schema/tx/spring-tx.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context.xsd
+		http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc.xsd
+        http://www.springframework.org/schema/data/jpa
+        http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+        http://www.springframework.org/schema/cache
+        http://www.springframework.org/schema/cache/spring-cache.xsd
+        http://www.springframework.org/schema/data/elasticsearch
+        http://www.springframework.org/schema/data/elasticsearch/spring-elasticsearch.xsd"
+       default-lazy-init="true">
+
+    <aop:aspectj-autoproxy proxy-target-class="true" />
+
+    <context:component-scan base-package="com.irelint" />
+    <context:annotation-config />
+
+    <!-- enables scanning for @Transactional annotations -->
+    <tx:annotation-driven proxy-target-class="true" />
+
+    <context:property-placeholder location="classpath:irelint.properties"
+                                  system-properties-mode="OVERRIDE" />
+
+    <!-- 数据源配置，使用Tomcat JDBC -->
+    <bean id="dataSource" class="org.apache.tomcat.jdbc.pool.DataSource"
+          destroy-method="close">
+        <!-- Connection Info -->
+        <property name="driverClassName" value="${jdbc.driver}" />
+        <property name="url" value="${jdbc.url}" />
+        <property name="username" value="${jdbc.username}" />
+        <property name="password" value="${jdbc.password}" />
+
+        <!-- Connection Pooling Info -->
+        <property name="initialSize" value="${jdbc.pool.initialSize}" />
+        <property name="maxActive" value="${jdbc.pool.maxActive}" />
+        <property name="minIdle" value="${jdbc.pool.minIdle}" />
+        <property name="maxIdle" value="${jdbc.pool.maxIdle}" />
+        <property name="maxWait" value="${jdbc.pool.maxWait}" />
+
+        <property name="testOnBorrow" value="true" />
+        <property name="validationQuery" value="select 1" />
+        <property name="validationInterval" value="30000" />
+    </bean>
+
+    <bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+        <property name="entityManagerFactory" ref="entityManagerFactory" />
+    </bean>
+
+    <!-- Jpa -->
+    <jpa:repositories base-package="com.irelint" />
+    <bean id="entityManagerFactory"
+          class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+        <property name="dataSource" ref="dataSource" />
+        <property name="packagesToScan" value="com.irelint" />
+        <property name="jpaVendorAdapter">
+            <bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter" />
+        </property>
+        <property name="jpaProperties">
+            <props>
+                <prop key="hibernate.hbm2ddl.auto">update</prop>
+                <prop key="hibernate.show_sql">true</prop>
+                <prop key="hibernate.dialect">org.hibernate.dialect.MySQL5Dialect</prop>
+                <!-- 支持数据库字段大写转下划线 -->
+                <prop key="hibernate.ejb.naming_strategy">org.hibernate.cfg.ImprovedNamingStrategy</prop>
+            </props>
+        </property>
+    </bean>
+
+    <mvc:annotation-driven>
+        <mvc:argument-resolvers>
+            <bean
+                    class="org.springframework.data.web.PageableHandlerMethodArgumentResolver" />
+        </mvc:argument-resolvers>
+    </mvc:annotation-driven>
+    <mvc:resources mapping="/static/**" location="/static/" />
+
+    <bean id="templateResolver"
+          class="org.thymeleaf.templateresolver.ServletContextTemplateResolver">
+        <property name="prefix" value="/WEB-INF/templates/" />
+        <property name="suffix" value=".html" />
+        <property name="templateMode" value="LEGACYHTML5" />
+        <!-- Template cache is set to false (default is true). -->
+        <property name="cacheable" value="false" />
+        <property name="characterEncoding" value="UTF-8" />
+    </bean>
+
+    <bean id="templateEngine" class="org.thymeleaf.spring4.SpringTemplateEngine">
+        <property name="templateResolver" ref="templateResolver" />
+        <property name="additionalDialects">
+            <set>
+                <bean
+                        class="org.thymeleaf.extras.springsecurity4.dialect.SpringSecurityDialect" />
+                <bean class="org.thymeleaf.extras.java8time.dialect.Java8TimeDialect" />
+            </set>
+        </property>
+    </bean>
+
+    <bean
+            class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver">
+        <property name="viewResolvers">
+            <list>
+                <bean class="org.thymeleaf.spring4.view.ThymeleafViewResolver">
+                    <property name="templateEngine" ref="templateEngine" />
+                    <property name="order" value="1" />
+                    <property name="characterEncoding" value="UTF-8" />
+                </bean>
+            </list>
+        </property>
+    </bean>
+
+    <!--配置上传图片 -->
+    <bean id="multipartResolver"
+          class="org.springframework.web.multipart.commons.CommonsMultipartResolver" />
+</beans>
